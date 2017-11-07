@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -33,7 +34,7 @@ namespace NuGet.Commands
             _request = request;
         }
 
-        public async Task<Tuple<bool, List<RestoreTargetGraph>, RuntimeGraph>> TryRestoreAsync(LibraryRange projectRange,
+        public async Task<Tuple<bool, List<RestoreTargetGraph>, RuntimeGraph, PackagesExtractionSummaryResult>> TryRestoreAsync(LibraryRange projectRange,
             IEnumerable<FrameworkRuntimePair> frameworkRuntimePairs,
             HashSet<LibraryIdentity> allInstalledPackages,
             NuGetv3LocalRepository userPackageFolder,
@@ -63,7 +64,7 @@ namespace NuGet.Commands
 
             graphs.AddRange(frameworkGraphs);
 
-            await InstallPackagesAsync(graphs,
+            var extractedResult = await InstallPackagesAsync(graphs,
                 allInstalledPackages,
                 token);
 
@@ -112,7 +113,7 @@ namespace NuGet.Commands
                 graphs.AddRange(runtimeGraphs);
 
                 // Install runtime-specific packages
-                await InstallPackagesAsync(runtimeGraphs,
+                extractedResult += await InstallPackagesAsync(runtimeGraphs,
                     allInstalledPackages,
                     token);
 
@@ -130,7 +131,7 @@ namespace NuGet.Commands
 
             var success = await ResolutionSucceeded(graphs, context, token);
 
-            return Tuple.Create(success, graphs, allRuntimes);
+            return Tuple.Create(success, graphs, allRuntimes, extractedResult);
         }
 
         private Task<RestoreTargetGraph> WalkDependenciesAsync(LibraryRange projectRange,
@@ -211,10 +212,14 @@ namespace NuGet.Commands
             return success;
         }
 
-        private async Task InstallPackagesAsync(IEnumerable<RestoreTargetGraph> graphs,
+        private async Task<PackagesExtractionSummaryResult> InstallPackagesAsync(IEnumerable<RestoreTargetGraph> graphs,
             HashSet<LibraryIdentity> allInstalledPackages,
             CancellationToken token)
         {
+            var stopWatch = new Stopwatch();
+
+            stopWatch.Start();
+
             var packagesToInstall = graphs.SelectMany(g => g.Install.Where(match => allInstalledPackages.Add(match.Library)));
 
             var signedPackageVerifier = new SignedPackageVerifier(
@@ -227,11 +232,13 @@ namespace NuGet.Commands
                 _logger,
                 signedPackageVerifier);
 
+            var results = new List<PackageExtractionResult>();
+
             if (_request.MaxDegreeOfConcurrency <= 1)
             {
                 foreach (var match in packagesToInstall)
                 {
-                    await InstallPackageAsync(match, packageExtractionContext, token);
+                    results.Add(await InstallPackageAsync(match, packageExtractionContext, token));
                 }
             }
             else
@@ -243,41 +250,39 @@ namespace NuGet.Commands
                         RemoteMatch match;
                         while (bag.TryTake(out match))
                         {
-                            await InstallPackageAsync(match, packageExtractionContext, token);
+                            return await InstallPackageAsync(match, packageExtractionContext, token);
                         }
+
+                        return null;
                     });
                 await Task.WhenAll(tasks);
+
+                results.AddRange(tasks.Where(p => p.Result != null).Select(p => p.Result));
             }
+
+            stopWatch.Stop();
+
+            return new PackagesExtractionSummaryResult(results, stopWatch.Elapsed);
         }
 
-        private async Task InstallPackageAsync(RemoteMatch installItem, PackageExtractionContext packageExtractionContext, CancellationToken token)
+        private async Task<PackageExtractionResult> InstallPackageAsync(RemoteMatch installItem, PackageExtractionContext packageExtractionContext, CancellationToken token)
         {
             var packageIdentity = new PackageIdentity(installItem.Library.Name, installItem.Library.Version);
 
-            var signedPackageVerifier = new SignedPackageVerifier(
-                            SignatureVerificationProviderFactory.GetSignatureVerificationProviders(),
-                            SignedPackageVerifierSettings.Default);
-
             var versionFolderPathResolver = new VersionFolderPathResolver(_request.PackagesDirectory);
-            try
+
+            using (var packageDependency = await installItem.Provider.GetPackageDownloaderAsync(
+                packageIdentity,
+                _request.CacheContext,
+                _logger,
+                token))
             {
-                using (var packageDependency = await installItem.Provider.GetPackageDownloaderAsync(
+                return await PackageExtractor.InstallFromSourceAsync(
                     packageIdentity,
-                    _request.CacheContext,
-                    _logger,
-                    token))
-                {
-                    await PackageExtractor.InstallFromSourceAsync(
-                        packageIdentity,
-                        packageDependency,
-                        versionFolderPathResolver,
-                        packageExtractionContext,
-                        token);
-                }
-            }
-            catch (SignatureException e)
-            {
-                await _logger.LogAsync(RestoreLogMessage.CreateError(NuGetLogCode.NU1410, e.Message, packageIdentity.ToString()));
+                    packageDependency,
+                    versionFolderPathResolver,
+                    packageExtractionContext,
+                    token);
             }
         }
 

@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -401,7 +402,7 @@ namespace NuGet.Packaging
                                 }
                             }
                         }
-                        catch(SignatureException)
+                        catch (SignatureException)
                         {
                             try
                             {
@@ -467,7 +468,7 @@ namespace NuGet.Packaging
                 token: token);
         }
 
-        public static async Task<bool> InstallFromSourceAsync(
+        public static async Task<PackageExtractionResult> InstallFromSourceAsync(
             PackageIdentity packageIdentity,
             IPackageDownloader packageDownloader,
             VersionFolderPathResolver versionFolderPathResolver,
@@ -484,6 +485,10 @@ namespace NuGet.Packaging
                 throw new ArgumentNullException(nameof(packageExtractionContext));
             }
 
+            var stopWatch = new Stopwatch();
+
+            stopWatch.Start();
+
             var logger = packageExtractionContext.Logger;
 
             var targetPath = versionFolderPathResolver.GetInstallPath(packageIdentity.Id, packageIdentity.Version);
@@ -499,6 +504,7 @@ namespace NuGet.Packaging
             return await ConcurrencyUtilities.ExecuteWithFileLockedAsync(targetNupkg,
                 action: async cancellationToken =>
                 {
+                    var verified = false;
                     // If this is the first process trying to install the target nupkg, go ahead
                     // After this process successfully installs the package, all other processes
                     // waiting on this lock don't need to install it again.
@@ -541,39 +547,44 @@ namespace NuGet.Packaging
                         var tempHashPath = Path.Combine(targetPath, Path.GetRandomFileName());
                         var packageSaveMode = packageExtractionContext.PackageSaveMode;
 
+                        var verifyDuration = new TimeSpan();
+
                         // Extract the nupkg
                         var copiedNupkg = await packageDownloader.CopyNupkgFileToAsync(targetTempNupkg, cancellationToken);
 
                         if (packageSaveMode.HasFlag(PackageSaveMode.Nuspec) || packageSaveMode.HasFlag(PackageSaveMode.Files))
                         {
-                            try
-                            {
-                                await VerifyPackageSignatureAsync(packageIdentity, packageExtractionContext, packageDownloader.SignedPackageReader, token);
-                            }
-                            catch(SignatureException e)
-                            {
-                                try
-                                {
-                                    if (File.Exists(targetTempNupkg))
-                                    {
-                                        File.Delete(targetTempNupkg);
-                                    }
+                            var verifyStopWatch = new Stopwatch();
 
-                                    if (Directory.Exists(targetPath))
-                                    {
-                                        Directory.Delete(targetPath);
-                                    }
-                                }
-                                catch (IOException ex)
+                            stopWatch.Start();
+
+                            var verifyResult = await VerifyPackageSignatureAsync(
+                                packageIdentity,
+                                packageExtractionContext,
+                                packageDownloader.SignedPackageReader,
+                                token);
+
+                            verifyStopWatch.Stop();
+
+                            verifyDuration = stopWatch.Elapsed;
+
+                            verified = verifyResult != null;
+
+                            if (verified && !verifyResult.Valid)
+                            {
+                                if (copiedNupkg)
                                 {
-                                    logger.LogWarning(string.Format(
-                                        CultureInfo.CurrentCulture,
-                                        Strings.ErrorUnableToDeleteFile,
-                                        targetTempNupkg,
-                                        ex.Message));
+                                    DeleteFile(targetTempNupkg, logger);
                                 }
 
-                                throw;
+                                stopWatch.Stop();
+
+                                return new SignedPackageExtractionResult(
+                                    packageSize: 0,
+                                    packageExtractionDuration: stopWatch.Elapsed,
+                                    signatureVerifyResult: false,
+                                    signatureVerifyDuration: verifyDuration,
+                                    verifiedResults: verifyResult.Results);
                             }
                         }
 
@@ -651,18 +662,7 @@ namespace NuGet.Packaging
                         }
                         else
                         {
-                            try
-                            {
-                                File.Delete(targetTempNupkg);
-                            }
-                            catch (IOException ex)
-                            {
-                                logger.LogWarning(string.Format(
-                                    CultureInfo.CurrentCulture,
-                                    Strings.ErrorUnableToDeleteFile,
-                                    targetTempNupkg,
-                                    ex.Message));
-                            }
+                            DeleteFile(targetTempNupkg, logger);
                         }
 
                         // Note: PackageRepository relies on the hash file being written out as the
@@ -671,13 +671,25 @@ namespace NuGet.Packaging
                         File.Move(tempHashPath, hashPath);
 
                         logger.LogVerbose($"Completed installation of {packageIdentity.Id} {packageIdentity.Version}");
-                        return true;
+
+                        stopWatch.Stop();
+
+                        return verified? new SignedPackageExtractionResult(
+                                                    packageSize: 0,
+                                                    packageExtractionDuration: stopWatch.Elapsed,
+                                                    signatureVerifyResult: true,
+                                                    signatureVerifyDuration: verifyDuration,
+                                                    verifiedResults: Enumerable.Empty<SignatureVerificationResult>()) :
+                        new PackageExtractionResult(packageExisted: false, packageSize: 0, packageExtractionDuration: stopWatch.Elapsed);
                     }
                     else
                     {
                         logger.LogVerbose("Lock not required - Package already installed "
                                             + $"{packageIdentity.Id} {packageIdentity.Version}");
-                        return false;
+
+                        stopWatch.Stop();
+
+                        return new PackageExtractionResult(packageExisted: true, packageSize: 0, packageExtractionDuration: stopWatch.Elapsed) ;
                     }
                 },
                 token: token);
@@ -809,23 +821,36 @@ namespace NuGet.Packaging
             return satelliteFilesCopied;
         }
 
-        private static async Task VerifyPackageSignatureAsync(
+        private static async Task<VerifySignaturesResult> VerifyPackageSignatureAsync(
             PackageIdentity package,
             PackageExtractionContext packageExtractionContext,
             ISignedPackageReader signedPackageReader,
             CancellationToken token)
         {
-            if (packageExtractionContext.SignedPackageVerifier != null)
+            if (packageExtractionContext.SignedPackageVerifier != null && await signedPackageReader.IsSignedAsync(token))
             {
-                var verifyResult = await packageExtractionContext.SignedPackageVerifier.VerifySignaturesAsync(
+                await packageExtractionContext.SignedPackageVerifier.VerifySignaturesAsync(
                     signedPackageReader,
                     packageExtractionContext.Logger,
                     token);
+            }
 
-                if (!verifyResult.Valid)
-                {
-                    throw new SignatureException(string.Format(CultureInfo.CurrentCulture, Strings.InvalidPackageSignature, package.ToString()));
-                }
+            return null;
+        }
+
+        private static void DeleteFile(string targetTempNupkg, ILogger logger)
+        {
+            try
+            {
+                File.Delete(targetTempNupkg);
+            }
+            catch (IOException ex)
+            {
+                logger.LogWarning(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Strings.ErrorUnableToDeleteFile,
+                    targetTempNupkg,
+                    ex.Message));
             }
         }
     }
