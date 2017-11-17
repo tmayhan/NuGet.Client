@@ -52,5 +52,28 @@ namespace NuGet.VisualStudio
                 DateTimeOffset.Now,
                 duration);
         }
+
+        public static ActionEventBase GetUpgradeTelemetryEvent(
+            IEnumerable<NuGetProject> projects,
+            DateTimeOffset startTime,
+            NuGetOperationStatus status,
+            int packageCount,
+            double duration)
+        {
+            var sortedProjects = projects.OrderBy(
+                project => project.GetMetadata<string>(NuGetProjectMetadataKeys.UniqueName));
+
+            var projectIds = sortedProjects.Select(
+                project => project.GetMetadata<string>(NuGetProjectMetadataKeys.ProjectId)).ToArray();
+
+            return new ActionEventBase(
+                Guid.NewGuid().ToString(),
+                projectIds,
+                startTime,
+                status,
+                packageCount,
+                DateTimeOffset.Now,
+                duration);
+        }
     }
 }
