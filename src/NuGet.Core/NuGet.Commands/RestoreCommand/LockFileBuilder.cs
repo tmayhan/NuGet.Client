@@ -334,6 +334,30 @@ namespace NuGet.Commands
                 // In some failure cases where there is a conflict the root level project cannot be resolved, this should be handled gracefully
                 if (resolvedEntry != null)
                 {
+                    // go through each package dependency and set SuppressParent and IncludeType flags
+                    foreach(var dependency in frameworkInfo.Dependencies)
+                    {
+                        // ignore if author has already overwritten PrivateAssets flag.
+                        if (dependency.SuppressParent == LibraryIncludeFlagUtils.DefaultSuppressParent)
+                        {
+                            // resolvedDependency will have these SuppressParent and IncludeType flag set based on developmentDependency
+                            var resolvedDependency = resolvedEntry.Data.Dependencies.First(dep => dep.Name.Equals(dependency.Name, StringComparison.OrdinalIgnoreCase));
+
+                            if (resolvedDependency != null)
+                            {
+                                if (resolvedDependency.SuppressParent != LibraryIncludeFlagUtils.DefaultSuppressParent)
+                                {
+                                    dependency.SuppressParent = resolvedDependency.SuppressParent;
+                                }
+
+                                if (resolvedDependency.IncludeType != LibraryIncludeFlags.All)
+                                {
+                                    dependency.IncludeType = resolvedDependency.IncludeType;
+                                }
+                            }
+                        }
+                    }
+
                     dependencies.AddRange(resolvedEntry.Data.Dependencies.Where(lib =>
                         lib.LibraryRange.TypeConstraint == LibraryDependencyTarget.ExternalProject)
                         .Select(lib => lib.LibraryRange));
