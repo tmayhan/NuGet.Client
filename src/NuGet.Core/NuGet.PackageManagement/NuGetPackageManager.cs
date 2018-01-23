@@ -2416,17 +2416,6 @@ namespace NuGet.PackageManagement
             var projectId = string.Empty;
             buildIntegratedProject.TryGetMetadata<string>(NuGetProjectMetadataKeys.ProjectId, out projectId);
 
-            // Find all sources used in the project actions
-            var sources = new HashSet<SourceRepository>(
-                nuGetProjectActions.Where(action => action.SourceRepository != null)
-                    .Select(action => action.SourceRepository),
-                    new SourceRepositoryComparer());
-
-            // Add all enabled sources for the existing packages
-            var enabledSources = SourceRepositoryProvider.GetRepositories();
-
-            sources.UnionWith(enabledSources);
-
             // Read the current lock file if it exists
             LockFile originalLockFile = null;
             var lockFileFormat = new LockFileFormat();
@@ -2443,9 +2432,21 @@ namespace NuGet.PackageManagement
 
             // Get Package Spec as json object
             var originalPackageSpec = await DependencyGraphRestoreUtility.GetProjectSpec(buildIntegratedProject, dependencyGraphContext);
-
             // Create a copy to avoid modifying the original spec which may be shared.
             var updatedPackageSpec = originalPackageSpec.Clone();
+
+            // Find all sources used in the project actions
+            var sources = new HashSet<SourceRepository>(
+                nuGetProjectActions.Where(action => action.SourceRepository != null)
+                    .Select(action => action.SourceRepository),
+                    new SourceRepositoryComparer());
+
+            // Set the sources that'll be used during restore. 
+            updatedPackageSpec.RestoreMetadata.Sources = sources.Select(e => e.PackageSource).ToList();
+
+            // Add all enabled sources for the existing packages
+            sources.UnionWith(SourceRepositoryProvider.GetRepositories());
+
 
             var pathContext = NuGetPathContext.Create(Settings);
             var providerCache = new RestoreCommandProvidersCache();
@@ -2695,7 +2696,7 @@ namespace NuGet.PackageManagement
                 var now = DateTime.UtcNow;
                 Action<SourceCacheContext> cacheContextModifier = c => c.MaxAge = now;
 
-                // Check if current project is there in update cache and needs revaluation
+                // Check if current project is there in update cache and needs revaluation - TODO NK check this
                 var isProjectUpdated = false;
                 if (_buildIntegratedProjectsUpdateDict != null &&
                     _buildIntegratedProjectsUpdateDict.TryGetValue(
@@ -2766,7 +2767,7 @@ namespace NuGet.PackageManagement
                         DependencyGraphRestoreUtility.GetSolutionRestoreSpec(SolutionManager, referenceContext);
                 }
 
-                // Restore parent projects. These will be updated to include the transitive changes.
+                // Restore parent projects. These will be updated to include the transitive changes. TODO NK - We'd need to rerestore all parents
                 var parents = BuildIntegratedRestoreUtility.GetParentProjectsInClosure(
                     projects,
                     buildIntegratedProject,

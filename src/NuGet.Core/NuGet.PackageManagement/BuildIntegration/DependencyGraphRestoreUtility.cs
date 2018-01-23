@@ -148,7 +148,7 @@ namespace NuGet.PackageManagement
             var logger = context.Logger;
 
             // Add the new spec to the dg file and fill in the rest.
-            var dgFile = await GetSolutionRestoreSpec(solutionManager, context);
+            var dgFile = await GetSolutionRestoreSpec(solutionManager, context); // TODO NK - maybe the sources need to be included here
 
             dgFile = dgFile.WithoutRestores()
                 .WithReplacedSpec(packageSpec);
