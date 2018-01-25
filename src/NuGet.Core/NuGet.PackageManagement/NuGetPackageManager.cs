@@ -2638,6 +2638,7 @@ namespace NuGet.PackageManagement
                 return;
             }
 
+            var logger = new ProjectContextLogger(nuGetProjectContext);
             var actions = projectAction.GetProjectActions();
 
             // Check if all actions are uninstalls
@@ -2687,7 +2688,6 @@ namespace NuGet.PackageManagement
                     }
                 }
 
-                var logger = new ProjectContextLogger(nuGetProjectContext);
                 var referenceContext = new DependencyGraphCacheContext(logger, Settings);
                 var pathContext = NuGetPathContext.Create(Settings);
                 var pathResolver = new FallbackPackagePathResolver(pathContext);
@@ -2807,6 +2807,10 @@ namespace NuGet.PackageManagement
             }
             else
             {
+                // The assets file will not be persisted to disk due to the failure. For this reason all
+                // messages should be logged to VS so that the user can see them.
+                LogUtility.LogAssetFileMessages(logger, restoreResult);
+
                 // Fail and display a rollback message to let the user know they have returned to the original state
                 throw new InvalidOperationException(
                     string.Format(
