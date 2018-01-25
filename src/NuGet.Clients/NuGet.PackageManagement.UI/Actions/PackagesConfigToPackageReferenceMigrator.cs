@@ -67,7 +67,7 @@ namespace NuGet.PackageManagement.UI
 
                 try
                 {
-                    await context.PackageManager.ExecuteNuGetProjectActionsAsync(nuGetProject, actions, uiService.ProjectContext, CancellationToken.None);
+                    await context.PackageManager.ExecuteNuGetProjectActionsAsync(nuGetProject, actions, uiService.ProjectContext, NullSourceCacheContext.Instance, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
@@ -154,14 +154,13 @@ namespace NuGet.PackageManagement.UI
                 timer.Stop();
                 var duration = timer.Elapsed;
 
-                var actionTelemetryEvent = TelemetryUtility.GetUpgradeTelemetryEvent(
+                var actionTelemetryEvent = VSTelemetryServiceUtility.GetUpgradeTelemetryEvent(
                         uiService.Projects,
                         startTime,
                         status,
                         packagesCount,
                         duration.TotalSeconds);
-
-                UpgradeTelemetryService.Instance.EmitUpgradeEvent(actionTelemetryEvent);
+                new NuGetVSActionTelemetryService().EmitTelemetryEvent(actionTelemetryEvent);
             }
         }
 
