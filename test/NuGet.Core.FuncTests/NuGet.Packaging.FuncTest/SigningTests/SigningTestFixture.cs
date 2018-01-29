@@ -14,14 +14,29 @@ namespace NuGet.Packaging.FuncTest
     /// </summary>
     public class SigningTestFixture : IDisposable
     {
-        private static readonly string _testTimestampServer = Environment.GetEnvironmentVariable("TIMESTAMP_SERVER_URL");
-
         private TrustedTestCert<TestCertificate> _trustedTestCert;
         private TrustedTestCert<TestCertificate> _trustedTestCertExpired;
         private TrustedTestCert<TestCertificate> _trustedTestCertNotYetValid;
+        private TrustedTestCert<X509Certificate2> _trustedTimestampRoot;
         private IReadOnlyList<TrustedTestCert<TestCertificate>> _trustedTestCertificateWithReissuedCertificate;
         private IList<ISignatureVerificationProvider> _trustProviders;
         private SigningSpecifications _signingSpecifications;
+        private Lazy<SigningTestServer> _testServer;
+        private Lazy<CertificateAuthority> _defaultTrustedCertificateAuthority;
+        private Lazy<TimestampService> _defaultTrustedTimestampService;
+        private readonly DisposableList _responders;
+
+        public ISigningTestServer TestServer => _testServer.Value;
+        public CertificateAuthority DefaultTrustedCertificateAuthority => _defaultTrustedCertificateAuthority.Value;
+        public TimestampService DefaultTrustedTimestampService => _defaultTrustedTimestampService.Value;
+
+        public SigningTestFixture()
+        {
+            _testServer = new Lazy<SigningTestServer>(SigningTestServer.Create);
+            _defaultTrustedCertificateAuthority = new Lazy<CertificateAuthority>(CreateDefaultTrustedCertificateAuthority);
+            _defaultTrustedTimestampService = new Lazy<TimestampService>(CreateDefaultTrustedTimestampService);
+            _responders = new DisposableList();
+        }
 
         public TrustedTestCert<TestCertificate> TrustedTestCertificate
         {
@@ -117,11 +132,60 @@ namespace NuGet.Packaging.FuncTest
             }
         }
 
-        public string Timestamper => _testTimestampServer;
-
         public void Dispose()
         {
             _trustedTestCert?.Dispose();
+            _trustedTestCertExpired?.Dispose();
+            _trustedTestCertNotYetValid?.Dispose();
+            _trustedTimestampRoot?.Dispose();
+            _responders.Dispose();
+
+            if (_trustedTestCertificateWithReissuedCertificate != null)
+            {
+                foreach (var certificate in _trustedTestCertificateWithReissuedCertificate)
+                {
+                    certificate.Dispose();
+                }
+            }
+
+            if (_testServer.IsValueCreated)
+            {
+                _testServer.Value.Dispose();
+            }
+        }
+
+        private CertificateAuthority CreateDefaultTrustedCertificateAuthority()
+        {
+            var rootCa = CertificateAuthority.Create(TestServer.Url);
+            var intermediateCa = rootCa.CreateIntermediateCertificateAuthority();
+            var rootCertificate = new X509Certificate2(rootCa.Certificate.GetEncoded());
+
+            _trustedTimestampRoot = new TrustedTestCert<X509Certificate2>(
+                rootCertificate,
+                _ => _,
+                StoreName.Root,
+                StoreLocation.LocalMachine);
+
+            var ca = intermediateCa;
+
+            while (ca != null)
+            {
+                _responders.Add(TestServer.RegisterResponder(ca));
+                _responders.Add(TestServer.RegisterResponder(ca.OcspResponder));
+
+                ca = ca.Parent;
+            }
+
+            return intermediateCa;
+        }
+
+        private TimestampService CreateDefaultTrustedTimestampService()
+        {
+            var timestampService = TimestampService.Create(DefaultTrustedCertificateAuthority);
+
+            _responders.Add(TestServer.RegisterResponder(timestampService));
+
+            return timestampService;
         }
     }
 }

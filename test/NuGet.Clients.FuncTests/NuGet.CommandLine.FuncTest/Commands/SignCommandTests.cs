@@ -28,14 +28,12 @@ namespace NuGet.CommandLine.FuncTest.Commands
         private SignCommandTestFixture _testFixture;
         private TrustedTestCert<TestCertificate> _trustedTestCert;
         private string _nugetExePath;
-        private string _timestamper;
 
         public SignCommandTests(SignCommandTestFixture fixture)
         {
             _testFixture = fixture ?? throw new ArgumentNullException(nameof(fixture));
             _trustedTestCert = _testFixture.TrustedTestCertificate;
             _nugetExePath = _testFixture.NuGetExePath;
-            _timestamper = _testFixture.Timestamper;
         }
 
         [CIOnlyFact]
@@ -184,7 +182,7 @@ namespace NuGet.CommandLine.FuncTest.Commands
                 var result = CommandRunner.Run(
                     _nugetExePath,
                     dir,
-                    $"sign {packagePath} -CertificateFingerprint {_trustedTestCert.Source.Cert.Thumbprint}  -CertificateStoreName {_trustedTestCert.StoreName} -CertificateStoreLocation {_trustedTestCert.StoreLocation} -Timestamper {_timestamper}",
+                    $"sign {packagePath} -CertificateFingerprint {_trustedTestCert.Source.Cert.Thumbprint}  -CertificateStoreName {_trustedTestCert.StoreName} -CertificateStoreLocation {_trustedTestCert.StoreLocation} -Timestamper {_testFixture.DefaultTrustedTimestampService.Url.OriginalString}",
                     waitForExit: true);
 
                 // Assert
