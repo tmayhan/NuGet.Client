@@ -1352,6 +1352,15 @@ namespace NuGet.PackageManagement.UI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Direct Dependencies.
+        /// </summary>
+        public static string Text_DirectDependencies {
+            get {
+                return ResourceManager.GetString("Text_DirectDependencies", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} downloads.
         /// </summary>
         public static string Text_Downloads {
@@ -1375,15 +1384,6 @@ namespace NuGet.PackageManagement.UI {
         public static string Text_ErrorOccurred {
             get {
                 return ResourceManager.GetString("Text_ErrorOccurred", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Packages as PackageReference:.
-        /// </summary>
-        public static string Text_IncludedPackages {
-            get {
-                return ResourceManager.GetString("Text_IncludedPackages", resourceCulture);
             }
         }
         
@@ -1667,6 +1667,15 @@ namespace NuGet.PackageManagement.UI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Transitive Dependencies.
+        /// </summary>
+        public static string Text_TransitiveDependencies {
+            get {
+                return ResourceManager.GetString("Text_TransitiveDependencies", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Upgrade Complete.
         /// </summary>
         public static string Text_UpgradeComplete {
@@ -1717,6 +1726,15 @@ namespace NuGet.PackageManagement.UI {
         public static string Text_UpgradeOptions {
             get {
                 return ResourceManager.GetString("Text_UpgradeOptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Packages as PackageReference:.
+        /// </summary>
+        public static string Text_UpgraderHeader {
+            get {
+                return ResourceManager.GetString("Text_UpgraderHeader", resourceCulture);
             }
         }
         

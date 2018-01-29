@@ -150,7 +150,7 @@
       <TextBlock
         Grid.Row="0"
         Margin="0,0,0,4"
-        Text="{x:Static nuget:Resources.Text_IncludedPackages}" />
+        Text="{x:Static nuget:Resources.Text_UpgraderHeader}" />
       <ItemsControl
         Grid.Row="1"
         IsTabStop="False"
@@ -158,27 +158,27 @@
 
         <Expander
           Template="{StaticResource SimpleExpander}"
-          Header="Included Packages"
+          Header="{x:Static nuget:Resources.Text_DirectDependencies}"
           IsExpanded="True"
           Margin="0,0,0,4"
-          Visibility="{Binding IncludedPackages, Converter={StaticResource EnumerableToVisibilityConverter}}"
+          Visibility="{Binding DirectDependencies, Converter={StaticResource EnumerableToVisibilityConverter}}"
           Foreground="{DynamicResource {x:Static nuget:Brushes.UIText}}">
           <ItemsControl
             Foreground="{DynamicResource {x:Static nuget:Brushes.UIText}}"
-            ItemsSource="{Binding IncludedPackages}"
+            ItemsSource="{Binding DirectDependencies}"
             IsTabStop="False" />
         </Expander>
 
         <Expander
           Template="{StaticResource SimpleExpander}"
-          Header="Excluded Packages"
+          Header="{x:Static nuget:Resources.Text_TransitiveDependencies}"
           IsExpanded="True"
           Margin="0,0,0,4"
-          Visibility="{Binding ExcludedPackages, Converter={StaticResource EnumerableToVisibilityConverter}}"
+          Visibility="{Binding TransiviteDependencies, Converter={StaticResource EnumerableToVisibilityConverter}}"
           Foreground="{DynamicResource {x:Static nuget:Brushes.UIText}}">
           <ItemsControl
             Foreground="{DynamicResource {x:Static nuget:Brushes.UIText}}"
-            ItemsSource="{Binding ExcludedPackages}"
+            ItemsSource="{Binding TransiviteDependencies}"
             IsTabStop="False" />
         </Expander>
       </ItemsControl>
@@ -240,7 +240,7 @@
 
       </ItemsControl>
     </Grid>
-    <StackPanel Grid.Row="3" Margin="12,4,12,4">
+    <StackPanel Grid.Row="3" Margin="12,4,12,4" Visibility="Collapsed">
       <TextBlock
         Margin="0,0,0,3"
         Text="{x:Static nuget:Resources.Text_UpgradeOptions}"

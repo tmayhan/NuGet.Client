@@ -188,11 +188,11 @@ namespace NuGet.PackageManagement.UI
             {
                 upgradeLogger.LogIssue(projectName, UpgradeLogger.ErrorLevel.Warning, warning);
             }
-            foreach (var package in upgradeInformationWindowModel.IncludedPackages)
+            foreach (var package in upgradeInformationWindowModel.DirectDependencies)
             {
                 upgradeLogger.RegisterPackage(projectName, package, true);
             }
-            foreach (var package in upgradeInformationWindowModel.ExcludedPackages)
+            foreach (var package in upgradeInformationWindowModel.TransiviteDependencies)
             {
                 upgradeLogger.RegisterPackage(projectName, package, false);
             }

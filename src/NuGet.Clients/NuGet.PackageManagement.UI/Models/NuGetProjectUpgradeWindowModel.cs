@@ -53,8 +53,8 @@ namespace NuGet.PackageManagement.UI
             set
             {
                 _collapseDependencies = value;
-                OnPropertyChanged(nameof(IncludedPackages));
-                OnPropertyChanged(nameof(ExcludedPackages));
+                OnPropertyChanged(nameof(DirectDependencies));
+                OnPropertyChanged(nameof(TransiviteDependencies));
             }
         }
 
@@ -99,9 +99,9 @@ namespace NuGet.PackageManagement.UI
         public IEnumerable<NuGetProjectUpgradeDependencyItem> UpgradeDependencyItems
             => _upgradeDependencyItems ?? (_upgradeDependencyItems = GetUpgradeDependencyItems());
 
-        public IEnumerable<string> IncludedPackages => CollapseDependencies ? IncludedCollapsedPackages : AllPackages;
+        public IEnumerable<string> DirectDependencies => CollapseDependencies ? IncludedCollapsedPackages : AllPackages;
 
-        public IEnumerable<string> ExcludedPackages => CollapseDependencies ? DependencyPackages : new List<string>();
+        public IEnumerable<string> TransiviteDependencies => CollapseDependencies ? DependencyPackages : new List<string>();
 
         private IEnumerable<string> DependencyPackages => _dependencyPackages ?? (_dependencyPackages = GetDependencyPackages());
 

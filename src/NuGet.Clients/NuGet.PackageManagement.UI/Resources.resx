@@ -726,7 +726,7 @@ Please see https://aka.ms/troubleshoot_nuget_cache for more help.</value>
   <data name="NuGetUpgradeWarning_HasInstallScript" xml:space="preserve">
     <value>{0} contains an install.ps1 script that will not be applied after upgrading.</value>
   </data>
-  <data name="Text_IncludedPackages" xml:space="preserve">
+  <data name="Text_UpgraderHeader" xml:space="preserve">
     <value>Packages as PackageReference:</value>
   </data>
   <data name="Text_BeforeUpgradeConsiderations" xml:space="preserve">
@@ -785,5 +785,11 @@ Please see https://aka.ms/troubleshoot_nuget_cache for more help.</value>
   </data>
   <data name="Upgrade_UninstallFailed" xml:space="preserve">
     <value>NuGet upgrade failed to uninstall packages from packages.config so rolled back to previous state.</value>
+  </data>
+  <data name="Text_DirectDependencies" xml:space="preserve">
+    <value>Direct Dependencies</value>
+  </data>
+  <data name="Text_TransitiveDependencies" xml:space="preserve">
+    <value>Transitive Dependencies</value>
   </data>
 </root>
