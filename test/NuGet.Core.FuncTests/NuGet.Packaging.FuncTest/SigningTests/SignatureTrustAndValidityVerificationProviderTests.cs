@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -130,6 +131,7 @@ namespace NuGet.Packaging.FuncTest
             // Arrange
             var nupkg = new SimpleTestPackageContext();
             var testLogger = new TestLogger();
+            var timestampService = await _testFixture.GetDefaultTrustedTimestampServiceAsync();
             var setting = new SignedPackageVerifierSettings(allowUnsigned: false, allowUntrusted: false, allowIgnoreTimestamp: false, failWithMultipleTimestamps: true, allowNoTimestamp: false);
             var signatureProvider = new X509SignatureProvider(timestampProvider: null);
             var timestampProvider = new Rfc3161TimestampProvider(timestampService.Url);
