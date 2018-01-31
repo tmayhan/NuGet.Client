@@ -14,6 +14,5 @@ namespace NuGet.PackageManagement
         public static readonly string ResolveDependencyStepName = "Resolve dependency action for project {0} time";
         public static readonly string ResolvedActionsStepName = "Resolved nuget actions for project {0} time";
         public static readonly string ExecuteActionStepName = "Executing nuget actions for project {0} time";
-        public static readonly string UpgradeEventName = "VS/NuGet/UpgradeInformation";
     }
 }

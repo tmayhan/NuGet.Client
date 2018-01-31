@@ -60,6 +60,8 @@ namespace NuGet.VisualStudio
             int packageCount,
             double duration)
         {
+            var eventName = "UpgradeInformation";
+
             var sortedProjects = projects.OrderBy(
                 project => project.GetMetadata<string>(NuGetProjectMetadataKeys.UniqueName));
 
@@ -67,7 +69,7 @@ namespace NuGet.VisualStudio
                 project => project.GetMetadata<string>(NuGetProjectMetadataKeys.ProjectId)).ToArray();
 
             return new ActionEventBase(
-                Guid.NewGuid().ToString(),
+                eventName,
                 projectIds,
                 startTime,
                 status,
