@@ -55,6 +55,7 @@ namespace NuGetVSExtension
             "ActiveProjectFlavor:" + VsProjectTypes.CsharpProjectTypeGuid,
             "ActiveProjectFlavor:" + VsProjectTypes.VbProjectTypeGuid,
             "ActiveProjectCapability:SharedAssetsProject"})]
+    [ProvideAutoLoad(GuidList.guidUpgradeableProjectLoadedString)]
     [ProvideAutoLoad(GuidList.guidAutoLoadNuGetString)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.ProjectRetargeting_string)]
     [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionOrProjectUpgrading_string)]
