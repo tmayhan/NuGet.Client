@@ -31,7 +31,7 @@
 
       <table>
         <tr>
-          <th class="issueCell">Included as PackageReference</th>
+          <th class="issueCell">Top-level Dependencies</th>
         </tr>
         <xsl:for-each select="IncludedPackages/Package">
           <tr>
@@ -46,7 +46,7 @@
           <xsl:when test="$includedPackageCount = 0">
             <tr>
               <td class="issueCell">
-                No packages were included.
+                No packages were installed.
               </td>
             </tr>
           </xsl:when>
@@ -62,7 +62,7 @@
 
       <table>
         <tr>
-          <th class="issueCell">Excluded from PackageReference</th>
+          <th class="issueCell">Transitive Dependencies</th>
         </tr>
         <xsl:for-each select="ExcludedPackages/Package">
           <tr>
@@ -77,7 +77,7 @@
           <xsl:when test="$excludedPackageCount = 0">
             <tr>
               <td class="issueCell">
-                No packages were excluded.
+                No transitive dependencies found.
               </td>
             </tr>
           </xsl:when>
@@ -300,7 +300,7 @@
             <a href="https://aka.ms/nugetupgraderevertv1">Reverting NuGet Project Upgrade</a>
           </div>
 
-          <h2 _locID="PackagtesTitle">Packages Processed</h2>
+          <h2 _locID="PackagesTitle">Packages Processed</h2>
           <div class="issues">
             <xsl:apply-templates select="Projects" mode="IncludedPackages" />
           </div>

@@ -1352,7 +1352,7 @@ namespace NuGet.PackageManagement.UI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Direct Dependencies.
+        ///   Looks up a localized string similar to Top-level Dependencies.
         /// </summary>
         public static string Text_DirectDependencies {
             get {

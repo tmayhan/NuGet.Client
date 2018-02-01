@@ -787,7 +787,7 @@ Please see https://aka.ms/troubleshoot_nuget_cache for more help.</value>
     <value>NuGet upgrade failed to uninstall packages from packages.config so rolled back to previous state.</value>
   </data>
   <data name="Text_DirectDependencies" xml:space="preserve">
-    <value>Direct Dependencies</value>
+    <value>Top-level Dependencies</value>
   </data>
   <data name="Text_TransitiveDependencies" xml:space="preserve">
     <value>Transitive Dependencies</value>
