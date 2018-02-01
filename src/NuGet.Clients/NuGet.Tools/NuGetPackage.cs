@@ -538,8 +538,7 @@ namespace NuGetVSExtension
             var windowFrame = FindExistingWindowFrame(project);
             windowFrame?.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_SaveIfDirty);
 
-            var solutionManager = ServiceLocator.GetInstance<ISolutionManager>();
-            var nuGetProject = await solutionManager.GetNuGetProjectAsync(uniqueName);
+            var nuGetProject = await SolutionManager.Value.GetNuGetProjectAsync(uniqueName);
             var uiController = ServiceLocator.GetInstance<INuGetUIFactory>().Create(nuGetProject);
             var settings = uiController.UIContext.UserSettingsManager.GetSettings(GetProjectSettingsKey(nuGetProject));
             var collapseDependencies = settings.NuGetProjectUpgradeCollapseDependencies;
@@ -824,9 +823,13 @@ namespace NuGetVSExtension
 
         private void BeforeQueryStatusForUpgradeNuGetProject(object sender, EventArgs args)
         {
-            // Check whether to show context menu item for project or references, or in project menu
             ThreadHelper.JoinableTaskFactory.Run(async delegate
             {
+                if (ShouldMEFBeInitialized())
+                {
+                  await InitializeMEFAsync();
+                }
+
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 var command = (OleMenuCommand)sender;
@@ -842,6 +845,11 @@ namespace NuGetVSExtension
             // Check whether to show context menu item on packages.config
             ThreadHelper.JoinableTaskFactory.Run(async delegate
             {
+                if (ShouldMEFBeInitialized())
+                {
+                    await InitializeMEFAsync();
+                }
+
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 var command = (OleMenuCommand)sender;

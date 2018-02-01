@@ -37,17 +37,10 @@ namespace NuGet.PackageManagement.UI
             if (nuGetProject == null)
             {
                 var solutionManager = ServiceLocator.GetInstance<IVsSolutionManager>();
-                var projectUniqueName = await EnvDTEProjectInfoUtility.GetCustomUniqueNameAsync(envDTEProject);
-                var projectAdapter = await solutionManager.GetVsProjectAdapterAsync(projectUniqueName);
 
-                if (projectAdapter == null)
-                {
-                    throw new InvalidOperationException(string.Format(Resources.Error_ProjectNotInCache, projectUniqueName));
-                }
-
-                var projectSafeName = projectAdapter.CustomUniqueName;
-
+                var projectSafeName = await EnvDTEProjectInfoUtility.GetCustomUniqueNameAsync(envDTEProject);
                 nuGetProject = await solutionManager.GetNuGetProjectAsync(projectSafeName);
+
                 if (nuGetProject == null)
                 {
                     return false;
