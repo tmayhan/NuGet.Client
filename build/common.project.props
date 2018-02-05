@@ -268,4 +268,8 @@
    <ApexProjects Include="$(RepositoryRootDirectory)test\NuGet.Tests.Apex\*\*.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Shipping)' == 'true' AND '$(IsXPlat)' != 'true'">
+    <PackageReference Include="PdbGit" Version="3.0.41" PrivateAssets="all"/>
+  </ItemGroup>
+
 </Project>
