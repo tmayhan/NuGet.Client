@@ -11,6 +11,7 @@ using NuGet.Commands;
 using NuGet.Common;
 using NuGet.Configuration;
 using NuGet.Frameworks;
+using NuGet.LibraryModel;
 using NuGet.Packaging.Core;
 using NuGet.ProjectModel;
 using NuGet.Protocol.Core.Types;
@@ -32,7 +33,15 @@ namespace NuGet.CommandLine.XPlat
                 packageReferenceArgs.Logger.LogWarning(string.Format(CultureInfo.CurrentCulture,
                     Strings.Warn_AddPkgWithoutRestore));
 
-                msBuild.AddPackageReference(packageReferenceArgs.ProjectPath, packageReferenceArgs.PackageDependency);
+                var libraryDependency = new LibraryDependency
+                {
+                    LibraryRange = new LibraryRange(
+                    name: packageReferenceArgs.PackageDependency.Id,
+                    versionRange: packageReferenceArgs.PackageDependency.VersionRange,
+                    typeConstraint: LibraryDependencyTarget.Package)
+                };
+
+                msBuild.AddPackageReference(packageReferenceArgs.ProjectPath, libraryDependency);
                 return 0;
             }
 
@@ -150,8 +159,10 @@ namespace NuGet.CommandLine.XPlat
                 // If the user did not specify a version then update the version to resolved version
                 UpdatePackageVersionIfNeeded(restorePreviewResult, packageReferenceArgs, userSpecifiedFrameworks);
 
-                msBuild.AddPackageReference(packageReferenceArgs.ProjectPath,
-                    packageReferenceArgs.PackageDependency);
+                // generate a library dependency with all the metadata like Include, Exlude and SuppressParent
+                var libraryDependency = GenerateLibraryDependency(updatedPackageSpec, packageReferenceArgs, restorePreviewResult.Result.RestoreGraphs, userSpecifiedFrameworks);
+
+                msBuild.AddPackageReference(packageReferenceArgs.ProjectPath, libraryDependency);
             }
             else
             {
@@ -169,12 +180,59 @@ namespace NuGet.CommandLine.XPlat
                 // If the user did not specify a version then update the version to resolved version
                 UpdatePackageVersionIfNeeded(restorePreviewResult, packageReferenceArgs, userSpecifiedFrameworks);
 
+                // generate a library dependency with all the metadata like Include, Exlude and SuppressParent
+                var libraryDependency = GenerateLibraryDependency(updatedPackageSpec, packageReferenceArgs, restorePreviewResult.Result.RestoreGraphs, userSpecifiedFrameworks);
+
                 msBuild.AddPackageReferencePerTFM(packageReferenceArgs.ProjectPath,
-                    packageReferenceArgs.PackageDependency,
+                    libraryDependency,
                     compatibleOriginalFrameworks);
             }
 
             return 0;
+        }
+
+        private static LibraryDependency GenerateLibraryDependency(
+            PackageSpec project,
+            PackageReferenceArgs packageReferenceArgs,
+            IEnumerable<RestoreTargetGraph> targetGraphs,
+            IEnumerable<NuGetFramework> UserSpecifiedFrameworks)
+        {
+            if (packageReferenceArgs.Frameworks?.Any() == true)
+            {
+                // If the user specified frameworks then we get the flattened graphs  only from the compatible frameworks.
+                var userSpecifiedFrameworkSet = new HashSet<NuGetFramework>(
+                    UserSpecifiedFrameworks,
+                    new NuGetFrameworkFullComparer());
+
+                targetGraphs = targetGraphs
+                    .Where(r => userSpecifiedFrameworkSet.Contains(r.Framework));
+            }
+
+            foreach (var restoreGraph in targetGraphs)
+            {
+                var resolvedEntry = restoreGraph
+                    .Flattened
+                    .SingleOrDefault(p => p.Key.Name.Equals(project.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (resolvedEntry != null)
+                {
+                    var resolvedDependency = resolvedEntry.Data.Dependencies.First(
+                        dep => dep.Name.Equals(packageReferenceArgs.PackageDependency.Id, StringComparison.OrdinalIgnoreCase));
+
+                    if (resolvedDependency != null)
+                    {
+                        return resolvedDependency;
+                    }
+                }
+            }
+
+            return new LibraryDependency
+            {
+                LibraryRange = new LibraryRange(
+                    name: packageReferenceArgs.PackageDependency.Id,
+                    versionRange: packageReferenceArgs.PackageDependency.VersionRange,
+                    typeConstraint: LibraryDependencyTarget.Package)
+            };
         }
 
         private static async Task<RestoreResultPair> PreviewAddPackageReferenceAsync(PackageReferenceArgs packageReferenceArgs,

@@ -2666,14 +2666,17 @@ namespace NuGet.PackageManagement
                     }
                 }
 
+                LockFileBuilder.UpdatePackageReferenceMetadata(projectAction.RestoreResult.LockFile.PackageSpec, projectAction.RestoreResult.RestoreGraphs);
+
                 foreach (var originalAction in projectAction.OriginalActions.Where(e => !ignoreActions.Contains(e)))
                 {
                     if (originalAction.NuGetProjectActionType == NuGetProjectActionType.Install)
                     {
                         if (buildIntegratedProject.ProjectStyle == ProjectStyle.PackageReference)
                         {
-                            var resolvedAction = projectAction.RestoreResult.LockFile.PackageSpec.TargetFrameworks.FirstOrDefault().Dependencies.First(
-                                dependency => dependency.Name.Equals(originalAction.PackageIdentity.Id, StringComparison.OrdinalIgnoreCase));
+                            var framework = projectAction.InstallationContext.SuccessfulFrameworks.FirstOrDefault();
+                            var resolvedAction = projectAction.RestoreResult.LockFile.PackageSpec.TargetFrameworks.FirstOrDefault(fm => fm.FrameworkName.Equals(framework))
+                                .Dependencies.First(dependency => dependency.Name.Equals(originalAction.PackageIdentity.Id, StringComparison.OrdinalIgnoreCase));
 
                             projectAction.InstallationContext.SuppressParent = resolvedAction.SuppressParent;
                             projectAction.InstallationContext.IncludeType = resolvedAction.IncludeType;
