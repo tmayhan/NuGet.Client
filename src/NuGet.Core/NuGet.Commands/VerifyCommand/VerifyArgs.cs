@@ -44,5 +44,10 @@ namespace NuGet.Commands
         /// If not empty, signer certificate fingerprint must match one in this list
         /// </summary>
         public IEnumerable<string> CertificateFingerprint { get; set; }
+
+        /// <summary>
+        /// Settings read from the config file provided by the user. Defaults to settings from %AppData%\NuGet\NuGet.config
+        /// </summary>
+        public Configuration.ISettings Settings { get; set; }
     }
 }
