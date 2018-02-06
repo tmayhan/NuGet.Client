@@ -52,11 +52,44 @@ namespace NuGet.ProjectModel
                 SingleOrDefault();
         }
 
+        public static bool isCyclic(string name, Dictionary<string, bool> visited, Dictionary<string, bool> loop, LockFile lockFile, NuGetFramework framework)
+        {
+            visited[name] = true;
+            loop[name] = true;
+            var dependencies = GetTargetLibrary(name, lockFile, framework).Dependencies;
+            for (int i = 0; i < dependencies.Count; ++i)
+            {
+                string curName = dependencies[i].Id;
+                if (!visited[curName] && isCyclic(curName, visited, loop, lockFile, framework))
+                    return true;
+                else if (loop[curName])
+                    return true;
+            }
+            loop[name] = false;
+            return false;
+        }
         public static bool HasCyclicDependency(string lockFilePath)
         {   /*
             Write logic to detect cyclic dependencies in a lock file
             */
-            
+            var lockFile = GetLockFile(lockFilePath);
+
+            IList<TargetFrameworkInformation> list = lockFile.PackageSpec.TargetFrameworks;
+
+            Dictionary<string, bool> visited = new Dictionary<string, bool>();
+            Dictionary<string, bool> loop = new Dictionary<string, bool>();
+
+            for(int i = 0; i < list.Count; ++i)
+            {
+                var localList = list[i].Dependencies;
+                for(int j = 0; j < localList.Count; ++j)
+                {
+                    string name = localList[j].Name;
+                    if (!visited[name] && isCyclic(name, visited, loop, lockFile, list[i].FrameworkName))
+                        return true;
+                }
+            }
+
             return false;
         }
     }

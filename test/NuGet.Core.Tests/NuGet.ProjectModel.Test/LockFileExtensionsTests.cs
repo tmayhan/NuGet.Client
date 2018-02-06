@@ -137,9 +137,13 @@ namespace NuGet.ProjectModel.Test
         [Fact]
         public void DetectCycles()
         {
-            /*
-            Write logic to detect cyclic dependencies in a lock file
-            */
+            var path = $"C:\\Users\\ragrawal\\Desktop\\interview\\lockfiles\\{0}.json";
+            string.Format(path, "1");
+            for(int i = 1; i < 3; ++i)
+            {
+                var value = LockFileUtilities.HasCyclicDependency(string.Format(path, i));
+                Assert.True(value);
+            }
         }
     }
 }
