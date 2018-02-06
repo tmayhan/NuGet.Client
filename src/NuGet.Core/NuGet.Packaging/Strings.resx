@@ -518,4 +518,7 @@ Valid from:</comment>
   <data name="CertificateChainValidationFailed" xml:space="preserve">
     <value>Certificate chain validation failed.</value>
   </data>
+  <data name="Error_NotOneRepositoryCounterSignature" xml:space="preserve">
+    <value>The package signature contains multiple repository countersignatures.</value>
+  </data>
 </root>

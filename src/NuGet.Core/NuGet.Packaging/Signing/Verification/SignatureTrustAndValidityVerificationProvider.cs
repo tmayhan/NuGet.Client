@@ -23,21 +23,45 @@ namespace NuGet.Packaging.Signing
             _fingerprintAlgorithm = HashAlgorithmName.SHA256;
         }
 
-        public Task<PackageVerificationResult> GetTrustResultAsync(ISignedPackageReader package, Signature signature, SignedPackageVerifierSettings settings, CancellationToken token)
+        public Task<PackageVerificationResult> GetTrustResultAsync(ISignedPackageReader package, PrimarySignature signature, SignedPackageVerifierSettings settings, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-
-            var result = VerifyValidityAndTrust(signature, settings);
+            var result = VerifySignatureAndCounterSignature(signature, settings);
             return Task.FromResult(result);
         }
 
 #if IS_DESKTOP
-        private PackageVerificationResult VerifyValidityAndTrust(Signature signature, SignedPackageVerifierSettings settings)
+        private PackageVerificationResult VerifySignatureAndCounterSignature(
+            PrimarySignature signature,
+            SignedPackageVerifierSettings settings)
         {
-            var issues = new List<SignatureLog>
+            var issues = new List<SignatureLog>();
+            var certificateExtraStore = signature.SignedCms.Certificates;
+
+            var primarySignatureStatus = VerifyValidityAndTrust(signature, settings, certificateExtraStore, issues);
+
+            var counterSignatureStatus = SignatureVerificationStatus.Trusted;
+            var counterSignature = RepositoryCounterSignature.GetRepositoryCounterSignature(signature);
+            if (counterSignature != null)
             {
-                SignatureLog.InformationLog(string.Format(CultureInfo.CurrentCulture, Strings.SignatureType, signature.Type.ToString()))
-            };
+                counterSignatureStatus = VerifyValidityAndTrust(counterSignature, settings, certificateExtraStore, issues);
+            }
+
+            return new SignedPackageVerificationResult(GetLowerSignatureVerificationStatus(primarySignatureStatus, counterSignatureStatus), signature, issues);
+        }
+
+        private static SignatureVerificationStatus GetLowerSignatureVerificationStatus(SignatureVerificationStatus statusA, SignatureVerificationStatus statusB)
+        {
+            return statusA.CompareTo(statusB) < 0 ? statusA : statusB;
+        }
+
+        private SignatureVerificationStatus VerifyValidityAndTrust(
+            Signature signature,
+            SignedPackageVerifierSettings settings,
+            X509Certificate2Collection certificateExtraStore,
+            List<SignatureLog> issues)
+        {
+            issues.Add(SignatureLog.InformationLog(string.Format(CultureInfo.CurrentCulture, Strings.SignatureType, signature.Type.ToString())));
 
             Timestamp validTimestamp;
             try
@@ -52,18 +76,17 @@ namespace NuGet.Packaging.Signing
             }
             catch (TimestampException)
             {
-                return new SignedPackageVerificationResult(SignatureVerificationStatus.Invalid, signature, issues);
+                return SignatureVerificationStatus.Invalid;
             }
 
-            var status = VerifySignature(
+            return VerifySignature(
                 signature,
                 validTimestamp,
                 settings.AllowUntrusted,
                 settings.AllowUntrustedSelfSignedCertificate,
                 settings.AllowUnknownRevocation,
+                certificateExtraStore,
                 issues);
-
-            return new SignedPackageVerificationResult(status, signature, issues);
         }
 
         private Timestamp GetValidTimestamp(
@@ -94,14 +117,25 @@ namespace NuGet.Packaging.Signing
             var timestamp = timestamps.FirstOrDefault();
             if (timestamp != null)
             {
-                using (var authorSignatureNativeCms = NativeCms.Decode(signature.SignedCms.Encode(), detached: false))
-                {
-                    var signatureHash = NativeCms.GetSignatureValueHash(signature.SignatureContent.HashAlgorithm, authorSignatureNativeCms);
+                byte[] signatureHash = null;
+                var primarySignature = signature as PrimarySignature;
 
-                    if (!IsTimestampValid(timestamp, signatureHash, allowIgnoreTimestamp, allowUnknownRevocation, issues) && !allowIgnoreTimestamp)
+                if (primarySignature != null)
+                {
+                    using (var primarySignatureNativeCms = NativeCms.Decode(primarySignature.SignedCms.Encode(), detached: false))
                     {
-                        throw new TimestampException();
+                        signatureHash = NativeCms.GetSignatureValueHash(primarySignature.SignatureContent.HashAlgorithm, primarySignatureNativeCms);
                     }
+                }
+                // If it's not a primary signature it will be a repository countersignature
+                else
+                {
+                    // TODO: How to get the bytes from a repository counter signature
+                }
+
+                if (!IsTimestampValid(timestamp, signatureHash, allowIgnoreTimestamp, allowUnknownRevocation, issues) && !allowIgnoreTimestamp)
+                {
+                    throw new TimestampException();
                 }
             }
 
@@ -114,6 +148,7 @@ namespace NuGet.Packaging.Signing
             bool allowUntrusted,
             bool allowUntrustedSelfSignedCertificate,
             bool allowUnknownRevocation,
+            X509Certificate2Collection certificateExtraStore,
             List<SignatureLog> issues)
         {
             var treatIssueAsError = !allowUntrusted;
@@ -146,8 +181,6 @@ namespace NuGet.Packaging.Signing
                 timestamp = timestamp ?? new Timestamp();
                 if (Rfc3161TimestampVerificationUtility.ValidateSignerCertificateAgainstTimestamp(certificate, timestamp))
                 {
-                    var certificateExtraStore = signature.SignedCms.Certificates;
-
                     using (var chainHolder = new X509ChainHolder())
                     {
                         var chain = chainHolder.Chain;
@@ -342,7 +375,9 @@ namespace NuGet.Packaging.Signing
             return false;
         }
 #else
-        private PackageVerificationResult VerifyValidityAndTrust(Signature signature, SignedPackageVerifierSettings settings)
+        private PackageVerificationResult VerifySignatureAndCounterSignature(
+            PrimarySignature signature,
+            SignedPackageVerifierSettings settings)
         {
             throw new NotSupportedException();
         }

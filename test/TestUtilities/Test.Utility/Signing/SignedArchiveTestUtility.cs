@@ -106,7 +106,7 @@ namespace Test.Utility.Signing
         /// <param name="packageStream">Package stream for which the signature has to be generated.</param>
         /// <param name="timestampProvider">An optional timestamp provider.</param>
         /// <returns>Signature for the package.</returns>
-        public static async Task<Signature> CreateSignatureForPackageAsync(
+        public static async Task<PrimarySignature> CreatePrimarySignatureForPackageAsync(
             X509Certificate2 testCert,
             Stream packageStream,
             ITimestampProvider timestampProvider = null)
@@ -122,7 +122,7 @@ namespace Test.Utility.Signing
                 var signatureContent = new SignatureContent(SigningSpecifications.V1, hashAlgorithm, base64ZipArchiveHash);
                 var testSignatureProvider = new X509SignatureProvider(timestampProvider);
 
-                return await testSignatureProvider.CreateSignatureAsync(request, signatureContent, testLogger, CancellationToken.None);
+                return await testSignatureProvider.CreatePrimarySignatureAsync(request, signatureContent, testLogger, CancellationToken.None);
             }
         }
 
@@ -172,13 +172,13 @@ namespace Test.Utility.Signing
         /// <param name="request">SignPackageRequest containing the metadata for the signature request.</param>
         /// <param name="testLogger">ILogger.</param>
         /// <returns>Signature for the package.</returns>
-        public static async Task<Signature> CreateSignatureForPackageAsync(ISignatureProvider signatureProvider, PackageArchiveReader package, SignPackageRequest request, TestLogger testLogger)
+        public static async Task<PrimarySignature> CreatePrimarySignatureForPackageAsync(ISignatureProvider signatureProvider, PackageArchiveReader package, SignPackageRequest request, TestLogger testLogger)
         {
             var zipArchiveHash = await package.GetArchiveHashAsync(request.SignatureHashAlgorithm, CancellationToken.None);
             var base64ZipArchiveHash = Convert.ToBase64String(zipArchiveHash);
             var signatureContent = new SignatureContent(SigningSpecifications.V1, request.SignatureHashAlgorithm, base64ZipArchiveHash);
 
-            return await signatureProvider.CreateSignatureAsync(request, signatureContent, testLogger, CancellationToken.None);
+            return await signatureProvider.CreatePrimarySignatureAsync(request, signatureContent, testLogger, CancellationToken.None);
         }
 
 #if IS_DESKTOP
@@ -242,7 +242,7 @@ namespace Test.Utility.Signing
         /// <param name="signature">Signature that needs to be timestamped.</param>
         /// <param name="logger">ILogger.</param>
         /// <returns>Timestamped Signature.</returns>
-        public static Task<Signature> TimestampSignature(ITimestampProvider timestampProvider, SignPackageRequest signatureRequest, Signature signature, ILogger logger)
+        public static Task<PrimarySignature> TimestampPrimarySignature(ITimestampProvider timestampProvider, SignPackageRequest signatureRequest, PrimarySignature signature, ILogger logger)
         {
             var timestampRequest = new TimestampRequest
             {
@@ -251,7 +251,7 @@ namespace Test.Utility.Signing
                 TimestampHashAlgorithm = signatureRequest.TimestampHashAlgorithm
             };
 
-            return TimestampSignature(timestampProvider, timestampRequest, signature, logger);
+            return TimestampPrimarySignature(timestampProvider, timestampRequest, signature, logger);
         }
 
         /// <summary>
@@ -262,9 +262,9 @@ namespace Test.Utility.Signing
         /// <param name="logger">ILogger.</param>
         /// <param name="timestampRequest">timestampRequest containing metadata for timestamp request.</param>
         /// <returns>Timestamped Signature.</returns>
-        public static Task<Signature> TimestampSignature(ITimestampProvider timestampProvider, TimestampRequest timestampRequest, Signature signature, ILogger logger)
+        public static Task<PrimarySignature> TimestampPrimarySignature(ITimestampProvider timestampProvider, TimestampRequest timestampRequest, PrimarySignature signature, ILogger logger)
         {
-            return timestampProvider.TimestampSignatureAsync(timestampRequest, logger, CancellationToken.None);
+            return timestampProvider.TimestampPrimarySignatureAsync(timestampRequest, logger, CancellationToken.None);
         }
 
         /// <summary>
@@ -320,7 +320,7 @@ namespace Test.Utility.Signing
 
 #if IS_DESKTOP
 
-        public static Signature GenerateInvalidSignature(Signature signature)
+        public static PrimarySignature GenerateInvalidPrimarySignature(PrimarySignature signature)
         {
             var hash = Encoding.UTF8.GetBytes(signature.SignatureContent.HashValue);
             var newHash = Encoding.UTF8.GetBytes(new string('0', hash.Length));
@@ -328,7 +328,7 @@ namespace Test.Utility.Signing
             var bytes = signature.SignedCms.Encode();
             var newBytes = FindAndReplaceSequence(bytes, hash, newHash);
 
-            return Signature.Load(newBytes);
+            return PrimarySignature.Load(newBytes);
         }
 #endif
 
